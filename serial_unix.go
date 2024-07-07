@@ -90,7 +90,7 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		}
 		if !res.IsReadable(port.handle) {
 			// Timeout happened
-			return 0, nil
+			return 0, os.ErrDeadlineExceeded
 		}
 		n, err := unix.Read(port.handle, p)
 		if err == unix.EINTR {
@@ -104,6 +104,9 @@ func (port *unixPort) Read(p []byte) (int, error) {
 		}
 		if n < 0 { // Do not return -1 unix errors
 			n = 0
+			if err == nil {
+				err = fmt.Errorf("unix.Read() returned n<0,err==nil: n=%d", n)
+			}
 		}
 		return n, err
 	}
