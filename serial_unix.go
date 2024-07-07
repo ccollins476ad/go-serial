@@ -112,12 +112,25 @@ func (port *unixPort) Read(p []byte) (int, error) {
 	}
 }
 
-func (port *unixPort) Write(p []byte) (n int, err error) {
-	n, err = unix.Write(port.handle, p)
-	if n < 0 { // Do not return -1 unix errors
+func (port *unixPort) writeOnce(p []byte) (int, error) {
+	n, err := unix.Write(port.handle, p)
+	if n < 0 { // io.Writer must return n>=0
+		if err == nil {
+			err = fmt.Errorf("unix.Write() returned n<0,err==nil: n=%d", n)
+		}
 		n = 0
 	}
-	return
+	return n, err
+}
+
+func (port *unixPort) Write(p []byte) (n int, err error) {
+	for n < len(p) && err != nil {
+		var n2 int
+		n2, err = port.writeOnce(p[n:])
+		n += n2
+	}
+
+	return n, err
 }
 
 func (port *unixPort) Break(t time.Duration) error {
